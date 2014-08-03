@@ -221,9 +221,6 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		err = os.ErrNotExist
 	}
 
-	// Prepare queries
-	providerQueries, err := server.prepareProviderQueries(plotReq, graph)
-
 	// Stop if an error was encountered
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -237,6 +234,12 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 	}
 
 	// Execute queries
+	providerQueries, err := server.prepareProviderQueries(plotReq, graph)
+	if err != nil {
+		logger.Log(logger.LevelError, "server", "%s", err)
+		server.serveResponse(writer, serverResponse{mesgUnhandledError}, http.StatusInternalServerError)
+	}
+
 	plotSeries := make(map[string]plot.Series)
 
 	for _, providerQuery := range providerQueries {
