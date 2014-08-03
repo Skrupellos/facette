@@ -94,8 +94,8 @@ func (connector *GraphiteConnector) GetPlots(query *plot.Query) ([]plot.Series, 
 
 	if len(query.Group.Series) == 0 {
 		return nil, fmt.Errorf("graphite[%s]: group has no series", connector.name)
-	} else if query.Group.Type != OperGroupTypeNone && len(query.Group.Series) == 1 {
-		query.Group.Type = OperGroupTypeNone
+	} else if query.Group.Type != plot.OperTypeNone && len(query.Group.Series) == 1 {
+		query.Group.Type = plot.OperTypeNone
 	}
 
 	URLQuery, err := graphiteBuildURLQuery(query, connector.series)
@@ -259,7 +259,7 @@ func graphiteBuildURLQuery(query *plot.Query, graphiteSeries map[string]map[stri
 
 	URLQuery := "format=json"
 
-	if query.Group.Type == OperGroupTypeNone {
+	if query.Group.Type == plot.OperTypeNone {
 		for _, series := range query.Group.Series {
 			target := graphiteSeries[series.Metric.Source][series.Metric.Name]
 
@@ -281,9 +281,9 @@ func graphiteBuildURLQuery(query *plot.Query, graphiteSeries map[string]map[stri
 		}
 
 		switch query.Group.Type {
-		case OperGroupTypeAvg:
+		case plot.OperTypeAvg:
 			target = fmt.Sprintf("averageSeries(%s)", target)
-		case OperGroupTypeSum:
+		case plot.OperTypeSum:
 			target = fmt.Sprintf("sumSeries(%s)", target)
 		}
 

@@ -12,7 +12,6 @@ import (
 	"github.com/facette/facette/pkg/config"
 	"github.com/facette/facette/pkg/logger"
 	"github.com/facette/facette/pkg/plot"
-
 	influxdb "github.com/facette/facette/thirdparty/github.com/influxdb/influxdb/client"
 )
 
@@ -121,15 +120,37 @@ func (connector *InfluxDBConnector) GetPlots(query *plot.Query) ([]plot.Series, 
 		resultSeries = append(resultSeries, series)
 	}
 
-	if query.Group.Type == OperGroupTypeSum {
-		sumSeries, err := plot.SumSeries(resultSeries)
+	if query.Group.Type == plot.OperTypeSum {
+		consolidatedSeries, err := plot.ConsolidateSeries(
+			resultSeries,
+			query.StartTime,
+			query.EndTime,
+			query.Sample,
+			plot.ConsolidateAverage,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("influxdb[%s]: unable to consolidate series: %s", connector.name, err)
+		}
+
+		sumSeries, err := plot.SumSeries(consolidatedSeries)
 		if err != nil {
 			return nil, fmt.Errorf("influxdb[%s]: unable to sum series: %s", connector.name, err)
 		}
 
 		return []plot.Series{sumSeries}, nil
-	} else if query.Group.Type == OperGroupTypeAvg {
-		avgSeries, err := plot.AvgSeries(resultSeries)
+	} else if query.Group.Type == plot.OperTypeAvg {
+		consolidatedSeries, err := plot.ConsolidateSeries(
+			resultSeries,
+			query.StartTime,
+			query.EndTime,
+			query.Sample,
+			plot.ConsolidateAverage,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("influxdb[%s]: unable to consolidate series: %s", connector.name, err)
+		}
+
+		avgSeries, err := plot.AvgSeries(consolidatedSeries)
 		if err != nil {
 			return nil, fmt.Errorf("influxdb[%s]: unable to average series: %s", connector.name, err)
 		}

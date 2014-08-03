@@ -76,8 +76,8 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 
 	if len(query.Group.Series) == 0 {
 		return nil, fmt.Errorf("rrd[%s]: group has no series", connector.name)
-	} else if query.Group.Type != OperGroupTypeNone && len(query.Group.Series) == 1 {
-		query.Group.Type = OperGroupTypeNone
+	} else if query.Group.Type != plot.OperTypeNone && len(query.Group.Series) == 1 {
+		query.Group.Type = plot.OperTypeNone
 	}
 
 	graph := rrd.NewGrapher()
@@ -96,7 +96,7 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 	step := time.Duration(0)
 
 	switch query.Group.Type {
-	case OperGroupTypeNone:
+	case plot.OperTypeNone:
 		for _, series := range query.Group.Series {
 			if series.Metric == nil {
 				continue
@@ -154,7 +154,7 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 			}
 		}
 
-	case OperGroupTypeAvg, OperGroupTypeSum:
+	case plot.OperTypeAvg, plot.OperTypeSum:
 		itemName := fmt.Sprintf("series%d", count)
 		count++
 
@@ -194,7 +194,7 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 			}
 		}
 
-		if query.Group.Type == OperGroupTypeAvg {
+		if query.Group.Type == plot.OperTypeAvg {
 			stack = append(stack, strconv.Itoa(len(query.Group.Series)), "/")
 		}
 

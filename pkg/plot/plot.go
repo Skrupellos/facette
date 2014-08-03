@@ -134,54 +134,10 @@ type Series struct {
 	Summary map[string]Value
 }
 
-// Consolidate consolidates a series of plots given a certain number of values per point.
-func (series *Series) Consolidate(pad, consolidationType int) {
-	if pad < 2 {
-		return
-	}
-
-	plotsCount := len(series.Plots)
-
-	plots := series.Plots[:]
-	series.Plots = make([]Plot, 0)
-
-	bucket := []float64{}
-
-	for i := 0; i < plotsCount; i++ {
-		if !plots[i].Value.IsNaN() {
-			bucket = append(bucket, float64(plots[i].Value))
-		}
-
-		if (i+1)%pad == 0 {
-			if len(bucket) == 0 {
-				series.Plots = append(
-					series.Plots,
-					Plot{Value: Value(math.NaN()), Time: plots[i].Time},
-				)
-
-				continue
-			}
-
-			series.Plots = append(
-				series.Plots,
-				Plot{Value: consolidateBucket(bucket, consolidationType), Time: plots[i].Time},
-			)
-
-			bucket = make([]float64, 0)
-		}
-	}
-
-	if len(bucket) > 0 {
-		series.Plots = append(
-			series.Plots,
-			Plot{Value: consolidateBucket(bucket, consolidationType), Time: plots[plotsCount-1].Time},
-		)
-	}
-}
-
 // Downsample applies a sampling function on a series of plots, reducing the number of points.
-func (series *Series) Downsample(sample, consolidationType int) {
-	series.Consolidate(len(series.Plots)/sample, consolidationType)
+func (series *Series) Downsample(startTime, endTime time.Time, sample, consolidationType int) {
+	consolidatedSeries, _ := ConsolidateSeries([]Series{*series}, startTime, endTime, sample, consolidationType)
+	*series = consolidatedSeries[0]
 }
 
 // Scale applies a factor on a series of plots.
@@ -269,40 +225,4 @@ func (series Series) Percentiles(percentiles []float64) {
 
 		series.Summary[percentileString] = Value(set[rankInt-1] + rankFrac*(set[rankInt]-set[rankInt-1]))
 	}
-}
-
-func consolidateBucket(bucket []float64, consolidationType int) Value {
-	switch consolidationType {
-	case ConsolidateAverage, ConsolidateSum:
-		sum := 0.0
-		for _, entry := range bucket {
-			sum += entry
-		}
-
-		if consolidationType == ConsolidateAverage {
-			return Value(sum / float64(len(bucket)))
-		}
-
-		return Value(sum)
-	case ConsolidateMax:
-		max := math.NaN()
-		for _, entry := range bucket {
-			if !math.IsNaN(entry) && entry > max || math.IsNaN(max) {
-				max = entry
-			}
-		}
-
-		return Value(max)
-	case ConsolidateMin:
-		min := math.NaN()
-		for _, entry := range bucket {
-			if !math.IsNaN(entry) && entry < min || math.IsNaN(min) {
-				min = entry
-			}
-		}
-
-		return Value(min)
-	}
-
-	return Value(math.NaN())
 }
