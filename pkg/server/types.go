@@ -179,10 +179,9 @@ func (r UnitValueListResponse) slice(i, j int) interface{} {
 
 // PlotResponse represents a plot response structure in the server backend.
 type PlotResponse struct {
-	ID    string `json:"id"`
-	Start string `json:"start"`
-	End   string `json:"end"`
-	// Step        float64           `json:"step"`
+	ID          string            `json:"id"`
+	Start       string            `json:"start"`
+	End         string            `json:"end"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Type        int               `json:"type"`
