@@ -82,18 +82,26 @@ func init() {
 	}
 }
 
+// GetName returns the name of the current connector.
+func (connector *InfluxDBConnector) GetName() string {
+	return connector.name
+}
+
 // GetPlots retrieves time series data from provider based on a query and a time interval.
 func (connector *InfluxDBConnector) GetPlots(query *plot.Query) ([]plot.Series, error) {
-	var resultSeries = make([]plot.Series, 0)
+	metricsLength := len(query.Metrics)
+	if metricsLength == 0 {
+		return nil, fmt.Errorf("influxdb[%s]: requested metrics list is empty", connector.name)
+	}
 
-	serieNames := make([]string, len(query.Group.Series))
-	for i, serie := range query.Group.Series {
-		serieNames[i] = connector.series[serie.Metric.Source][serie.Metric.Name]
+	seriesNames := make([]string, metricsLength)
+	for i, metric := range query.Metrics {
+		seriesNames[i] = connector.series[metric.Source][metric.Name]
 	}
 
 	influxdbQuery := fmt.Sprintf(
 		"select value from %s where time > %ds and time < %ds order asc",
-		strings.Join(serieNames, ","),
+		strings.Join(seriesNames, ","),
 		query.StartTime.Unix(),
 		query.EndTime.Unix(),
 	)
@@ -103,9 +111,11 @@ func (connector *InfluxDBConnector) GetPlots(query *plot.Query) ([]plot.Series, 
 		return nil, fmt.Errorf("influxdb[%s]: unable to perform query: %s", connector.name, err)
 	}
 
+	resultSeries := make([]plot.Series, 0)
+
 	for i, influxdbSeries := range queryResult {
 		series := plot.Series{
-			Name:    query.Group.Series[i].Metric.Name,
+			Name:    query.Metrics[i].Name,
 			Summary: make(map[string]plot.Value),
 			Step:    int(query.EndTime.Sub(query.StartTime) / time.Duration(query.Sample)),
 		}
@@ -120,45 +130,7 @@ func (connector *InfluxDBConnector) GetPlots(query *plot.Query) ([]plot.Series, 
 		resultSeries = append(resultSeries, series)
 	}
 
-	if query.Group.Type == plot.OperTypeSum {
-		consolidatedSeries, err := plot.ConsolidateSeries(
-			resultSeries,
-			query.StartTime,
-			query.EndTime,
-			query.Sample,
-			plot.ConsolidateAverage,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("influxdb[%s]: unable to consolidate series: %s", connector.name, err)
-		}
-
-		sumSeries, err := plot.SumSeries(consolidatedSeries)
-		if err != nil {
-			return nil, fmt.Errorf("influxdb[%s]: unable to sum series: %s", connector.name, err)
-		}
-
-		return []plot.Series{sumSeries}, nil
-	} else if query.Group.Type == plot.OperTypeAvg {
-		consolidatedSeries, err := plot.ConsolidateSeries(
-			resultSeries,
-			query.StartTime,
-			query.EndTime,
-			query.Sample,
-			plot.ConsolidateAverage,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("influxdb[%s]: unable to consolidate series: %s", connector.name, err)
-		}
-
-		avgSeries, err := plot.AvgSeries(consolidatedSeries)
-		if err != nil {
-			return nil, fmt.Errorf("influxdb[%s]: unable to average series: %s", connector.name, err)
-		}
-
-		return []plot.Series{avgSeries}, nil
-	} else {
-		return resultSeries, nil
-	}
+	return resultSeries, nil
 }
 
 // Refresh triggers a full connector data update.

@@ -11,6 +11,7 @@ import (
 
 // Connector represents the main interface of a connector handler.
 type Connector interface {
+	GetName() string
 	GetPlots(query *plot.Query) ([]plot.Series, error)
 	Refresh(string, chan *catalog.Record) error
 }

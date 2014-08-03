@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -57,56 +56,19 @@ func (value Value) IsNaN() bool {
 
 // Query represents a plot query to a connector.
 type Query struct {
-	Group     *QueryGroup
 	StartTime time.Time
 	EndTime   time.Time
 	Sample    int
+	Metrics   []QueryMetric
 }
 
-func (plotQuery *Query) String() string {
+func (query *Query) String() string {
 	return fmt.Sprintf(
-		"Query{StartTime:%s EndTime:%s Sample:%d Group:%s}",
-		plotQuery.StartTime.String(),
-		plotQuery.EndTime.String(),
-		plotQuery.Sample,
-		plotQuery.Group,
-	)
-}
-
-// QueryGroup represents a plot query operation group.
-type QueryGroup struct {
-	Type    int
-	Series  []*QuerySeries
-	Options map[string]interface{}
-}
-
-func (queryGroup *QueryGroup) String() string {
-	return fmt.Sprintf(
-		"QueryGroup{Type:%d Options:%v Series:[%s]}",
-		queryGroup.Type,
-		queryGroup.Options,
-		func(series []*QuerySeries) string {
-			seriesStrings := make([]string, len(series))
-			for i, entry := range series {
-				seriesStrings[i] = fmt.Sprintf("%s", entry)
-			}
-
-			return strings.Join(seriesStrings, ", ")
-		}(queryGroup.Series),
-	)
-}
-
-// QuerySeries represents a series entry in a QueryGroup.
-type QuerySeries struct {
-	Metric  *QueryMetric
-	Options map[string]interface{}
-}
-
-func (QuerySeries *QuerySeries) String() string {
-	return fmt.Sprintf(
-		"QuerySeries{Metric:%s Options:%v}",
-		QuerySeries.Metric,
-		QuerySeries.Options,
+		"Query{StartTime:%s EndTime:%s Sample:%d Metrics:%s}",
+		query.StartTime,
+		query.EndTime,
+		query.Sample,
+		query.Metrics,
 	)
 }
 
@@ -117,12 +79,12 @@ type QueryMetric struct {
 	Source string
 }
 
-func (queryMetric *QueryMetric) String() string {
+func (metric *QueryMetric) String() string {
 	return fmt.Sprintf(
 		"QueryMetric{Name:\"%s\" Source:\"%s\" Origin:\"%s\"}",
-		queryMetric.Name,
-		queryMetric.Source,
-		queryMetric.Origin,
+		metric.Name,
+		metric.Source,
+		metric.Origin,
 	)
 }
 
@@ -176,6 +138,10 @@ func (series Series) Summarize(percentiles []float64) {
 			total += series.Plots[i].Value
 			nValidPlots++
 		}
+	}
+
+	if series.Summary == nil {
+		series.Summary = make(map[string]Value)
 	}
 
 	series.Summary["min"] = min

@@ -860,7 +860,7 @@ func Test_LibraryGraphHandle(test *testing.T) {
 	graphBase := &library.Graph{Item: library.Item{Name: "graph0", Description: "A great graph description."},
 		StackMode: library.StackModeNormal}
 
-	group := &library.OperGroup{Name: "group0", Type: plot.OperTypeAvg}
+	group := &library.OperGroup{Name: "group0", Type: plot.OperTypeAverage}
 	group.Series = append(group.Series, &library.Series{Name: "series0", Origin: "test", Source: "source1",
 		Metric: "database1/test"})
 	group.Series = append(group.Series, &library.Series{Name: "series1", Origin: "test", Source: "source2",

@@ -53,7 +53,7 @@ import (
 // 	}
 // }
 
-// func Test_FuncAvgSeries(test *testing.T) {
+// func Test_FuncAverageSeries(test *testing.T) {
 // 	var (
 // 		// Valid series
 // 		testFull = []Series{
@@ -113,38 +113,38 @@ import (
 // 		}
 // 	)
 
-// 	avgFull, err := AvgSeries(testFull)
+// 	avgFull, err := AverageSeries(testFull)
 // 	if err != nil {
-// 		test.Logf("AvgSeries(testFull) returned an error: %s", err)
+// 		test.Logf("AverageSeries(testFull) returned an error: %s", err)
 // 		test.Fail()
 // 	}
 
 // 	if err = compareSeries(expectedFull, avgFull); err != nil {
-// 		test.Logf(fmt.Sprintf("AvgSeries(testFull): %s", err))
+// 		test.Logf(fmt.Sprintf("AverageSeries(testFull): %s", err))
 // 		test.Fail()
 // 		return
 // 	}
 
-// 	avgNaN, err := AvgSeries(testNaN)
+// 	avgNaN, err := AverageSeries(testNaN)
 // 	if err != nil {
-// 		test.Logf("AvgSeries(testNaN) returned an error: %s", err)
+// 		test.Logf("AverageSeries(testNaN) returned an error: %s", err)
 // 		test.Fail()
 // 	}
 
 // 	if err = compareSeries(expectedNaN, avgNaN); err != nil {
-// 		test.Logf(fmt.Sprintf("AvgSeries(testNaN): %s", err))
+// 		test.Logf(fmt.Sprintf("AverageSeries(testNaN): %s", err))
 // 		test.Fail()
 // 		return
 // 	}
 
-// 	avgNotNormalized, err := AvgSeries(testNotNormalized)
+// 	avgNotNormalized, err := AverageSeries(testNotNormalized)
 // 	if err != nil {
-// 		test.Logf("AvgSeries(testNotNormalized) returned an error: %s", err)
+// 		test.Logf("AverageSeries(testNotNormalized) returned an error: %s", err)
 // 		test.Fail()
 // 	}
 
 // 	if err = compareSeries(expectedNotNormalized, avgNotNormalized); err != nil {
-// 		test.Logf(fmt.Sprintf("AvgSeries(testNotNormalized): %s", err))
+// 		test.Logf(fmt.Sprintf("AverageSeries(testNotNormalized): %s", err))
 // 		test.Fail()
 // 		return
 // 	}

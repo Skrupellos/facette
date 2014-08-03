@@ -3,6 +3,7 @@ package server
 import (
 	"time"
 
+	"github.com/facette/facette/pkg/connector"
 	"github.com/facette/facette/pkg/library"
 	"github.com/facette/facette/pkg/plot"
 )
@@ -24,13 +25,15 @@ func (e ExpandRequest) Swap(i, j int) {
 
 // PlotRequest represents a plot request structure in the server backend.
 type PlotRequest struct {
-	Time        string         `json:"time"`
+	Time        time.Time      `json:"time"`
 	Range       string         `json:"range"`
 	Sample      int            `json:"sample"`
 	Constants   []float64      `json:"constants"`
 	Percentiles []float64      `json:"percentiles"`
 	ID          string         `json:"id"`
 	Graph       *library.Graph `json:"graph"`
+	startTime   time.Time
+	endTime     time.Time
 }
 
 // OriginResponse represents an origin response structure in the server backend.
@@ -176,10 +179,10 @@ func (r UnitValueListResponse) slice(i, j int) interface{} {
 
 // PlotResponse represents a plot response structure in the server backend.
 type PlotResponse struct {
-	ID          string            `json:"id"`
-	Start       string            `json:"start"`
-	End         string            `json:"end"`
-	Step        float64           `json:"step"`
+	ID    string `json:"id"`
+	Start string `json:"start"`
+	End   string `json:"end"`
+	// Step        float64           `json:"step"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Type        int               `json:"type"`
@@ -225,4 +228,10 @@ type statsResponse struct {
 	Collections  int `json:"collections"`
 	SourceGroups int `json:"sourcegroups"`
 	MetricGroups int `json:"metricgroups"`
+}
+
+type providerQuery struct {
+	query     plot.Query
+	queryMap  []string
+	connector connector.Connector
 }

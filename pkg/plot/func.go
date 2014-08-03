@@ -24,8 +24,8 @@ const (
 	_ = iota
 	// OperTypeNone represents a null operation group mode.
 	OperTypeNone
-	// OperTypeAvg represents a AVG operation group mode.
-	OperTypeAvg
+	// OperTypeAverage represents a AVG operation group mode.
+	OperTypeAverage
 	// OperTypeSum represents a SUM operation group mode.
 	OperTypeSum
 )
@@ -102,6 +102,10 @@ func (bucket plotBucket) Consolidate(consolidationType int) Plot {
 func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample int,
 	consolidationType int) ([]Series, error) {
 
+	if sample == 0 {
+		return nil, fmt.Errorf("sample must be greater than zero")
+	}
+
 	seriesCount := len(seriesList)
 	if seriesCount == 0 {
 		return nil, fmt.Errorf("no series provided")
@@ -120,7 +124,7 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 		}
 	}
 
-	if maxLength < sample {
+	if maxLength > 0 && maxLength < sample {
 		sample = maxLength
 	}
 
@@ -144,6 +148,10 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 			}
 
 			plotIndex := int64(float64(plot.Time.UnixNano()-startTime.UnixNano())/float64(step.Nanoseconds())+1) - 1
+			if plotIndex >= int64(sample) {
+				continue
+			}
+
 			buckets[seriesIndex][plotIndex].plots = append(buckets[seriesIndex][plotIndex].plots, plot)
 		}
 
@@ -162,9 +170,9 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 	return consolidatedSeries, nil
 }
 
-// AvgSeries returns a new series averaging each series' datapoints.
-func AvgSeries(seriesList []Series) (Series, error) {
-	return operSeries(seriesList, OperTypeAvg)
+// AverageSeries returns a new series averaging each series' datapoints.
+func AverageSeries(seriesList []Series) (Series, error) {
+	return operSeries(seriesList, OperTypeAverage)
 }
 
 // SumSeries add series plots together and return the sum at each datapoint.
@@ -202,7 +210,7 @@ func operSeries(seriesList []Series, operType int) (Series, error) {
 
 		if sumCount == 0 {
 			operSeries.Plots[plotIndex].Value = Value(math.NaN())
-		} else if operType == OperTypeAvg {
+		} else if operType == OperTypeAverage {
 			operSeries.Plots[plotIndex].Value /= Value(sumCount)
 		}
 	}

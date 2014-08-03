@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/facette/facette/pkg/catalog"
@@ -66,18 +64,20 @@ func init() {
 	}
 }
 
+// GetName returns the name of the current connector.
+func (connector *RRDConnector) GetName() string {
+	return connector.name
+}
+
 // GetPlots retrieves time series data from origin based on a query and a time interval.
 func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error) {
 	var (
 		resultSeries []plot.Series
-		stack        []string
 		xport        *rrd.Exporter
 	)
 
-	if len(query.Group.Series) == 0 {
-		return nil, fmt.Errorf("rrd[%s]: group has no series", connector.name)
-	} else if query.Group.Type != plot.OperTypeNone && len(query.Group.Series) == 1 {
-		query.Group.Type = plot.OperTypeNone
+	if len(query.Metrics) == 0 {
+		return nil, fmt.Errorf("rrd[%s]: requested metrics list is empty", connector.name)
 	}
 
 	graph := rrd.NewGrapher()
@@ -92,135 +92,35 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 		xport.SetDaemon(connector.daemon)
 	}
 
-	count := 0
 	step := time.Duration(0)
 
-	switch query.Group.Type {
-	case plot.OperTypeNone:
-		for _, series := range query.Group.Series {
-			if series.Metric == nil {
-				continue
-			}
+	for index, metric := range query.Metrics {
+		itemName := fmt.Sprintf("series%d", index)
 
-			itemName := fmt.Sprintf("series%d", count)
-			count++
+		graph.Def(
+			itemName+"-def0",
+			connector.metrics[metric.Source][metric.Name].FilePath,
+			connector.metrics[metric.Source][metric.Name].Dataset,
+			"AVERAGE",
+		)
 
-			graph.Def(
-				itemName+"-orig0",
-				connector.metrics[series.Metric.Source][series.Metric.Name].FilePath,
-				connector.metrics[series.Metric.Source][series.Metric.Name].Dataset,
-				"AVERAGE",
-			)
-
-			seriesScale, _ := config.GetFloat(series.Options, "scale", false)
-			groupScale, _ := config.GetFloat(query.Group.Options, "scale", false)
-
-			if seriesScale != 0 {
-				graph.CDef(itemName+"-orig1", fmt.Sprintf("%s-orig0,%g,*", itemName, seriesScale))
-			} else {
-				graph.CDef(itemName+"-orig1", itemName+"-orig0")
-			}
-
-			if groupScale != 0 {
-				graph.CDef(itemName, fmt.Sprintf("%s-orig1,%g,*", itemName, groupScale))
-			} else {
-				graph.CDef(itemName, itemName+"-orig1")
-			}
-
-			// Set plots request
-			xport.Def(
-				itemName+"-orig0",
-				connector.metrics[series.Metric.Source][series.Metric.Name].FilePath,
-				connector.metrics[series.Metric.Source][series.Metric.Name].Dataset,
-				"AVERAGE",
-			)
-
-			if seriesScale != 0 {
-				xport.CDef(itemName+"-orig1", fmt.Sprintf("%s-orig0,%g,*", itemName, seriesScale))
-			} else {
-				xport.CDef(itemName+"-orig1", itemName+"-orig0")
-			}
-
-			if groupScale != 0 {
-				xport.CDef(itemName, fmt.Sprintf("%s-orig1,%g,*", itemName, groupScale))
-			} else {
-				xport.CDef(itemName, itemName+"-orig1")
-			}
-
-			xport.XportDef(itemName, itemName)
-
-			if connector.metrics[series.Metric.Source][series.Metric.Name].Step > step {
-				step = connector.metrics[series.Metric.Source][series.Metric.Name].Step
-			}
-		}
-
-	case plot.OperTypeAvg, plot.OperTypeSum:
-		itemName := fmt.Sprintf("series%d", count)
-		count++
-
-		for index, series := range query.Group.Series {
-			if series.Metric == nil {
-				continue
-			}
-
-			seriesTemp := itemName + fmt.Sprintf("-tmp%d", index)
-
-			graph.Def(
-				seriesTemp+"-ori",
-				connector.metrics[series.Metric.Source][series.Metric.Name].FilePath,
-				connector.metrics[series.Metric.Source][series.Metric.Name].Dataset,
-				"AVERAGE",
-			)
-
-			graph.CDef(seriesTemp, fmt.Sprintf("%s-ori,UN,0,%s-ori,IF", seriesTemp, seriesTemp))
-
-			xport.Def(
-				seriesTemp+"-ori",
-				connector.metrics[series.Metric.Source][series.Metric.Name].FilePath,
-				connector.metrics[series.Metric.Source][series.Metric.Name].Dataset,
-				"AVERAGE",
-			)
-
-			xport.CDef(seriesTemp, fmt.Sprintf("%s-ori,UN,0,%s-ori,IF", seriesTemp, seriesTemp))
-
-			if len(stack) == 0 {
-				stack = append(stack, seriesTemp)
-			} else {
-				stack = append(stack, seriesTemp, "+")
-			}
-
-			if connector.metrics[series.Metric.Source][series.Metric.Name].Step > step {
-				step = connector.metrics[series.Metric.Source][series.Metric.Name].Step
-			}
-		}
-
-		if query.Group.Type == plot.OperTypeAvg {
-			stack = append(stack, strconv.Itoa(len(query.Group.Series)), "/")
-		}
-
-		groupScale, _ := config.GetFloat(query.Group.Options, "scale", false)
-
-		graph.CDef(itemName+"-orig", strings.Join(stack, ","))
-
-		if groupScale != 0 {
-			graph.CDef(itemName, fmt.Sprintf("%s-orig,%g,*", itemName, groupScale))
-		} else {
-			graph.CDef(itemName, itemName+"-orig")
-		}
+		graph.CDef(itemName, itemName+"-def0")
 
 		// Set plots request
-		xport.CDef(itemName+"-orig", strings.Join(stack, ","))
+		xport.Def(
+			itemName+"-def0",
+			connector.metrics[metric.Source][metric.Name].FilePath,
+			connector.metrics[metric.Source][metric.Name].Dataset,
+			"AVERAGE",
+		)
 
-		if groupScale != 0 {
-			xport.CDef(itemName, fmt.Sprintf("%s-orig,%g,*", itemName, groupScale))
-		} else {
-			xport.CDef(itemName, itemName+"-orig")
-		}
+		xport.CDef(itemName, itemName+"-def0")
 
 		xport.XportDef(itemName, itemName)
 
-	default:
-		return nil, fmt.Errorf("rrd[%s]: unknown operator type %d", connector.name, query.Group.Type)
+		if connector.metrics[metric.Source][metric.Name].Step > step {
+			step = connector.metrics[metric.Source][metric.Name].Step
+		}
 	}
 
 	// Get plots
