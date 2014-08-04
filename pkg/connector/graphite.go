@@ -283,7 +283,10 @@ func graphiteExtractResult(graphitePlots []graphitePlot) ([]plot.Series, error) 
 	var resultSeries []plot.Series
 
 	for _, graphitePlot := range graphitePlots {
-		series := plot.Series{Summary: make(map[string]plot.Value)}
+		series := plot.Series{
+			Name:    graphitePlot.Target,
+			Summary: make(map[string]plot.Value),
+		}
 
 		for _, plotPoint := range graphitePlot.Datapoints {
 			series.Plots = append(

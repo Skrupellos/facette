@@ -281,6 +281,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 			}
 
 			groupSeries[seriesIndex] = plotSeries[seriesItem.Name]
+			groupSeries[seriesIndex].Name = seriesItem.Name
 
 			// Apply series scale if any
 			if scale, _ := config.GetFloat(seriesItem.Options, "scale", false); scale != 0 {
@@ -290,6 +291,11 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 
 		// Handle series operations
 		if groupItem.Type == plot.OperTypeAverage || groupItem.Type == plot.OperTypeSum {
+			var (
+				operSeries plot.Series
+				err        error
+			)
+
 			consolidatedSeries, err := plot.ConsolidateSeries(
 				groupSeries,
 				plotReq.startTime,
@@ -303,22 +309,22 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 			}
 
 			if groupItem.Type == plot.OperTypeAverage {
-				operSeries, err := plot.AverageSeries(consolidatedSeries)
+				operSeries, err = plot.AverageSeries(consolidatedSeries)
 				if err != nil {
 					logger.Log(logger.LevelError, "server", "unable to average series: %s", err)
 					continue
 				}
-
-				groupSeries = []plot.Series{operSeries}
 			} else {
-				operSeries, err := plot.SumSeries(consolidatedSeries)
+				operSeries, err = plot.SumSeries(consolidatedSeries)
 				if err != nil {
 					logger.Log(logger.LevelError, "server", "unable to average series: %s", err)
 					continue
 				}
-
-				groupSeries = []plot.Series{operSeries}
 			}
+
+			operSeries.Name = groupItem.Name
+
+			groupSeries = []plot.Series{operSeries}
 
 			// Apply group scale if any
 			if scale, _ := config.GetFloat(groupItem.Options, "scale", false); scale != 0 {
