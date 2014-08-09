@@ -236,8 +236,14 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 	// Execute queries
 	providerQueries, err := server.prepareProviderQueries(plotReq, graph)
 	if err != nil {
-		logger.Log(logger.LevelError, "server", "%s", err)
-		server.serveResponse(writer, serverResponse{mesgUnhandledError}, http.StatusInternalServerError)
+		if os.IsNotExist(err) {
+			server.serveResponse(writer, serverResponse{mesgResourceNotFound}, http.StatusNotFound)
+		} else {
+			logger.Log(logger.LevelError, "server", "%s", err)
+			server.serveResponse(writer, serverResponse{mesgUnhandledError}, http.StatusInternalServerError)
+		}
+
+		return
 	}
 
 	plotSeries := make(map[string][]plot.Series)
@@ -382,7 +388,8 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 
 			// Check for missing origins
 			if _, ok := server.Catalog.Origins[seriesItem.Origin]; !ok {
-				return nil, fmt.Errorf("unknown series origin `%s'", seriesItem.Origin)
+				logger.Log(logger.LevelWarning, "server", "unknown series origin `%s'", seriesItem.Origin)
+				return nil, os.ErrNotExist
 			}
 
 			// Handle sources/source groups
