@@ -157,13 +157,51 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 
 		// Consolidate buckets
 		consolidatedSeries[seriesIndex] = Series{
+			Name:    seriesList[seriesIndex].Name,
 			Plots:   make([]Plot, sample),
 			Summary: make(map[string]Value),
 		}
 
+		seriesLength := len(series.Plots)
+
+		plotRatio := sample / seriesLength
+		plotCount := 0
+		plotLast := Value(math.NaN())
+		plotStep := endTime.Sub(startTime) / time.Duration(sample)
+
 		for bucketIndex := range buckets[seriesIndex] {
 			consolidatedSeries[seriesIndex].Plots[bucketIndex] = buckets[seriesIndex][bucketIndex].
 				Consolidate(consolidationType)
+
+			if seriesCount == 1 {
+				continue
+			}
+
+			plot := &consolidatedSeries[seriesIndex].Plots[bucketIndex]
+
+			// Align times on consolidated series lists
+			plot.Time = buckets[seriesIndex][bucketIndex].startTime.Add(plotStep)
+
+			if plotRatio <= 1 {
+				continue
+			}
+
+			// Interpolate missing plots values
+			if !plot.Value.IsNaN() {
+				if plotCount <= plotRatio && !plotLast.IsNaN() {
+					plotChunk := (plot.Value - plotLast) / Value(plotCount+1)
+
+					for plotIndex := bucketIndex - plotCount; plotIndex < bucketIndex; plotIndex++ {
+						consolidatedSeries[seriesIndex].Plots[plotIndex].Value = plotLast +
+							Value(plotCount-(bucketIndex-plotIndex)+1)*plotChunk
+					}
+				}
+
+				plotLast = plot.Value
+				plotCount = 0
+			} else {
+				plotCount++
+			}
 		}
 	}
 

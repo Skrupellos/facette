@@ -315,23 +315,23 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		}
 
 		// Handle series operations
+		consolidatedSeries, err := plot.ConsolidateSeries(
+			groupSeries,
+			plotReq.startTime,
+			plotReq.endTime,
+			plotReq.Sample,
+			plot.ConsolidateAverage,
+		)
+		if err != nil {
+			logger.Log(logger.LevelError, "server", "unable to consolidate series: %s", err)
+			continue
+		}
+
 		if groupItem.Type == plot.OperTypeAverage || groupItem.Type == plot.OperTypeSum {
 			var (
 				operSeries plot.Series
 				err        error
 			)
-
-			consolidatedSeries, err := plot.ConsolidateSeries(
-				groupSeries,
-				plotReq.startTime,
-				plotReq.endTime,
-				plotReq.Sample,
-				plot.ConsolidateAverage,
-			)
-			if err != nil {
-				logger.Log(logger.LevelError, "server", "unable to consolidate series: %s", err)
-				continue
-			}
 
 			if groupItem.Type == plot.OperTypeAverage {
 				operSeries, err = plot.AverageSeries(consolidatedSeries)
@@ -356,15 +356,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 				groupSeries[0].Scale(plot.Value(scale))
 			}
 		} else {
-			// Downsample single series
-			for seriesIndex := range groupSeries {
-				groupSeries[seriesIndex].Downsample(
-					plotReq.startTime,
-					plotReq.endTime,
-					plotReq.Sample,
-					plot.ConsolidateAverage,
-				)
-			}
+			groupSeries = consolidatedSeries
 		}
 
 		for _, seriesItem := range groupSeries {
