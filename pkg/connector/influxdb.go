@@ -89,19 +89,19 @@ func (connector *InfluxDBConnector) GetName() string {
 
 // GetPlots retrieves time series data from provider based on a query and a time interval.
 func (connector *InfluxDBConnector) GetPlots(query *plot.Query) ([]plot.Series, error) {
-	metricsLength := len(query.Metrics)
-	if metricsLength == 0 {
-		return nil, fmt.Errorf("influxdb[%s]: requested metrics list is empty", connector.name)
+	seriesLength := len(query.Series)
+	if seriesLength == 0 {
+		return nil, fmt.Errorf("influxdb[%s]: requested series list is empty", connector.name)
 	}
 
-	seriesNames := make([]string, metricsLength)
-	for i, metric := range query.Metrics {
-		seriesNames[i] = connector.series[metric.Source][metric.Name]
+	metricsNames := make([]string, seriesLength)
+	for i, series := range query.Series {
+		metricsNames[i] = connector.series[series.Source][series.Metric]
 	}
 
 	influxdbQuery := fmt.Sprintf(
 		"select value from %s where time > %ds and time < %ds order asc",
-		strings.Join(seriesNames, ","),
+		strings.Join(metricsNames, ","),
 		query.StartTime.Unix(),
 		query.EndTime.Unix(),
 	)
@@ -115,7 +115,7 @@ func (connector *InfluxDBConnector) GetPlots(query *plot.Query) ([]plot.Series, 
 
 	for i, influxdbSeries := range queryResult {
 		series := plot.Series{
-			Name:    query.Metrics[i].Name,
+			Name:    query.Series[i].Name,
 			Summary: make(map[string]plot.Value),
 			Step:    int(query.EndTime.Sub(query.StartTime) / time.Duration(query.Sample)),
 		}

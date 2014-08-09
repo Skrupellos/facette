@@ -59,29 +59,30 @@ type Query struct {
 	StartTime time.Time
 	EndTime   time.Time
 	Sample    int
-	Metrics   []QueryMetric
+	Series    []QuerySeries
 }
 
 func (query *Query) String() string {
 	return fmt.Sprintf(
-		"Query{StartTime:%s EndTime:%s Sample:%d Metrics:%s}",
+		"Query{StartTime:%s EndTime:%s Sample:%d Series:%s}",
 		query.StartTime,
 		query.EndTime,
 		query.Sample,
-		query.Metrics,
+		query.Series,
 	)
 }
 
-// QueryMetric represents a metric entry in a QuerySeries.
-type QueryMetric struct {
+// QuerySeries represents a series entry in a Query.
+type QuerySeries struct {
 	Name   string
 	Origin string
 	Source string
+	Metric string
 }
 
-func (metric *QueryMetric) String() string {
+func (metric *QuerySeries) String() string {
 	return fmt.Sprintf(
-		"QueryMetric{Name:\"%s\" Source:\"%s\" Origin:\"%s\"}",
+		"QuerySeries{Name:\"%s\" Source:\"%s\" Origin:\"%s\"}",
 		metric.Name,
 		metric.Source,
 		metric.Origin,

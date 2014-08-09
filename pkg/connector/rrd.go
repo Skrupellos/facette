@@ -76,8 +76,8 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 		xport        *rrd.Exporter
 	)
 
-	if len(query.Metrics) == 0 {
-		return nil, fmt.Errorf("rrd[%s]: requested metrics list is empty", connector.name)
+	if len(query.Series) == 0 {
+		return nil, fmt.Errorf("rrd[%s]: requested series list is empty", connector.name)
 	}
 
 	graph := rrd.NewGrapher()
@@ -94,32 +94,30 @@ func (connector *RRDConnector) GetPlots(query *plot.Query) ([]plot.Series, error
 
 	step := time.Duration(0)
 
-	for index, metric := range query.Metrics {
-		itemName := fmt.Sprintf("series%d", index)
-
+	for _, series := range query.Series {
 		graph.Def(
-			itemName+"-def0",
-			connector.metrics[metric.Source][metric.Name].FilePath,
-			connector.metrics[metric.Source][metric.Name].Dataset,
+			series.Name+"-def0",
+			connector.metrics[series.Source][series.Metric].FilePath,
+			connector.metrics[series.Source][series.Metric].Dataset,
 			"AVERAGE",
 		)
 
-		graph.CDef(itemName, itemName+"-def0")
+		graph.CDef(series.Name, series.Name+"-def0")
 
 		// Set plots request
 		xport.Def(
-			itemName+"-def0",
-			connector.metrics[metric.Source][metric.Name].FilePath,
-			connector.metrics[metric.Source][metric.Name].Dataset,
+			series.Name+"-def0",
+			connector.metrics[series.Source][series.Metric].FilePath,
+			connector.metrics[series.Source][series.Metric].Dataset,
 			"AVERAGE",
 		)
 
-		xport.CDef(itemName, itemName+"-def0")
+		xport.CDef(series.Name, series.Name+"-def0")
 
-		xport.XportDef(itemName, itemName)
+		xport.XportDef(series.Name, series.Name)
 
-		if connector.metrics[metric.Source][metric.Name].Step > step {
-			step = connector.metrics[metric.Source][metric.Name].Step
+		if connector.metrics[series.Source][series.Metric].Step > step {
+			step = connector.metrics[series.Source][series.Metric].Step
 		}
 	}
 

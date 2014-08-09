@@ -97,8 +97,8 @@ func (connector *GraphiteConnector) GetPlots(query *plot.Query) ([]plot.Series, 
 		resultSeries  []plot.Series
 	)
 
-	if len(query.Metrics) == 0 {
-		return nil, fmt.Errorf("graphite[%s]: requested metrics list is empty", connector.name)
+	if len(query.Series) == 0 {
+		return nil, fmt.Errorf("graphite[%s]: requested series list is empty", connector.name)
 	}
 
 	URLQuery, err := graphiteBuildURLQuery(query, connector.series)
@@ -260,8 +260,12 @@ func graphiteBuildURLQuery(query *plot.Query, graphiteSeries map[string]map[stri
 
 	URLQuery := "format=json"
 
-	for _, metric := range query.Metrics {
-		URLQuery += fmt.Sprintf("&target=%s", url.QueryEscape(graphiteSeries[metric.Source][metric.Name]))
+	for _, series := range query.Series {
+		URLQuery += fmt.Sprintf(
+			"&target=alias(%s, \"%s\")",
+			url.QueryEscape(graphiteSeries[series.Source][series.Metric]),
+			series.Name,
+		)
 	}
 
 	if query.StartTime.Before(now) {

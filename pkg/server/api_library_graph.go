@@ -240,7 +240,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		server.serveResponse(writer, serverResponse{mesgUnhandledError}, http.StatusInternalServerError)
 	}
 
-	plotSeries := make(map[string]plot.Series)
+	plotSeries := make(map[string][]plot.Series)
 
 	for _, providerQuery := range providerQueries {
 		plots, err := providerQuery.connector.GetPlots(&providerQuery.query)
@@ -249,7 +249,25 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		}
 
 		for plotsIndex, plotsItem := range plots {
-			plotSeries[providerQuery.queryMap[plotsIndex]] = plotsItem
+			// Hande series name
+			if strings.HasPrefix(providerQuery.seriesMap[plotsIndex], library.LibraryGroupPrefix) {
+				plotsItem.Name = fmt.Sprintf(
+					"%s (%s)",
+					strings.TrimPrefix(providerQuery.seriesMap[plotsIndex], library.LibraryGroupPrefix),
+					providerQuery.metricsMap[plotsIndex],
+				)
+			} else {
+				plotsItem.Name = providerQuery.seriesMap[plotsIndex]
+			}
+
+			if _, ok := plotSeries[providerQuery.seriesMap[plotsIndex]]; !ok {
+				plotSeries[providerQuery.seriesMap[plotsIndex]] = make([]plot.Series, 0)
+			}
+
+			plotSeries[providerQuery.seriesMap[plotsIndex]] = append(
+				plotSeries[providerQuery.seriesMap[plotsIndex]],
+				plotsItem,
+			)
 		}
 	}
 
@@ -272,20 +290,21 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 	}
 
 	for _, groupItem := range graph.Groups {
-		groupSeries := make([]plot.Series, len(groupItem.Series))
+		groupSeries := make([]plot.Series, 0)
 
-		for seriesIndex, seriesItem := range groupItem.Series {
+		for _, seriesItem := range groupItem.Series {
 			if _, ok := plotSeries[seriesItem.Name]; !ok {
 				logger.Log(logger.LevelError, "server", "unable to find plots for `%s' series", seriesItem.Name)
 				continue
 			}
 
-			groupSeries[seriesIndex] = plotSeries[seriesItem.Name]
-			groupSeries[seriesIndex].Name = seriesItem.Name
+			for _, plotItem := range plotSeries[seriesItem.Name] {
+				// Apply series scale if any
+				if scale, _ := config.GetFloat(seriesItem.Options, "scale", false); scale != 0 {
+					plotItem.Scale(plot.Value(scale))
+				}
 
-			// Apply series scale if any
-			if scale, _ := config.GetFloat(seriesItem.Options, "scale", false); scale != 0 {
-				groupSeries[seriesIndex].Scale(plot.Value(scale))
+				groupSeries = append(groupSeries, plotItem)
 			}
 		}
 
@@ -317,7 +336,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 			} else {
 				operSeries, err = plot.SumSeries(consolidatedSeries)
 				if err != nil {
-					logger.Log(logger.LevelError, "server", "unable to average series: %s", err)
+					logger.Log(logger.LevelError, "server", "unable to sum series: %s", err)
 					continue
 				}
 			}
@@ -410,26 +429,33 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 								StartTime: plotReq.startTime,
 								EndTime:   plotReq.endTime,
 								Sample:    plotReq.Sample,
-								Metrics:   make([]plot.QueryMetric, 0),
+								Series:    make([]plot.QuerySeries, 0),
 							},
-							queryMap:  make([]string, 0),
-							connector: metric.Connector.(connector.Connector),
+							seriesMap:  make([]string, 0),
+							metricsMap: make([]string, 0),
+							connector:  metric.Connector.(connector.Connector),
 						}
 					}
 
 					// Append metric to provider query
-					providerQueries[providerName].query.Metrics = append(
-						providerQueries[providerName].query.Metrics,
-						plot.QueryMetric{
-							Name:   metric.OriginalName,
+					providerQueries[providerName].query.Series = append(
+						providerQueries[providerName].query.Series,
+						plot.QuerySeries{
+							Name:   fmt.Sprintf("series%d", len(providerQueries[providerName].query.Series)),
 							Origin: metric.Source.Origin.OriginalName,
 							Source: metric.Source.OriginalName,
+							Metric: metric.OriginalName,
 						},
 					)
 
-					providerQueries[providerName].queryMap = append(
-						providerQueries[providerName].queryMap,
+					providerQueries[providerName].seriesMap = append(
+						providerQueries[providerName].seriesMap,
 						seriesItem.Name,
+					)
+
+					providerQueries[providerName].metricsMap = append(
+						providerQueries[providerName].metricsMap,
+						metric.Name,
 					)
 				}
 			}
