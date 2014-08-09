@@ -1060,7 +1060,11 @@ function adminGraphSetupTerminate() {
                     callbacks: {
                         validate: function (data) {
                             data = parseFloat(data);
-                            value.options.scale = data;
+
+                            value.options = $.extend(value.options || {}, {
+                                scale: data
+                            });
+
                             $scale.text(data ? data.toPrecision(3) : '');
                         }
                     },
@@ -1112,7 +1116,10 @@ function adminGraphSetupTerminate() {
                     value: unitValue,
                     callbacks: {
                         validate: function (data) {
-                            value.options.unit = data;
+                            value.options = $.extend(value.options || {}, {
+                                unit: data
+                            });
+
                             $unit.text(data || '');
                         }
                     },
