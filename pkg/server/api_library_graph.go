@@ -357,8 +357,13 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 			}
 		} else {
 			// Downsample single series
-			for _, seriesItem := range groupSeries {
-				seriesItem.Downsample(plotReq.startTime, plotReq.endTime, plotReq.Sample, plot.ConsolidateAverage)
+			for seriesIndex := range groupSeries {
+				groupSeries[seriesIndex].Downsample(
+					plotReq.startTime,
+					plotReq.endTime,
+					plotReq.Sample,
+					plot.ConsolidateAverage,
+				)
 			}
 		}
 
