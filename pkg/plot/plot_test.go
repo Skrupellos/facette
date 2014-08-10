@@ -49,7 +49,7 @@ func Test_SeriesScale(test *testing.T) {
 	)
 
 	testSeries.Scale(Value(100))
-	if err := execCompareSeries(expectedSeries, testSeries); err != nil {
+	if err := compareSeries(expectedSeries, testSeries); err != nil {
 		test.Logf(fmt.Sprintf("%s", err))
 		test.Fail()
 		return
@@ -108,7 +108,7 @@ func Test_SeriesSummarize(test *testing.T) {
 	}
 }
 
-func execCompareSeries(expected, actual Series) error {
+func compareSeries(expected, actual Series) error {
 	for i := range expected.Plots {
 		if expected.Plots[i].Value.IsNaN() {
 			if expected.Plots[i].Value.IsNaN() && !actual.Plots[i].Value.IsNaN() {

@@ -123,7 +123,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = execCompareSeries(expectedFull, avgFull); err != nil {
+// 	if err = compareSeries(expectedFull, avgFull); err != nil {
 // 		test.Logf(fmt.Sprintf("AverageSeries(testFull): %s", err))
 // 		test.Fail()
 // 		return
@@ -135,7 +135,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = execCompareSeries(expectedNaN, avgNaN); err != nil {
+// 	if err = compareSeries(expectedNaN, avgNaN); err != nil {
 // 		test.Logf(fmt.Sprintf("AverageSeries(testNaN): %s", err))
 // 		test.Fail()
 // 		return
@@ -147,7 +147,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = execCompareSeries(expectedNotNormalized, avgNotNormalized); err != nil {
+// 	if err = compareSeries(expectedNotNormalized, avgNotNormalized); err != nil {
 // 		test.Logf(fmt.Sprintf("AverageSeries(testNotNormalized): %s", err))
 // 		test.Fail()
 // 		return
@@ -218,7 +218,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = execCompareSeries(expectedFull, sumFull); err != nil {
+// 	if err = compareSeries(expectedFull, sumFull); err != nil {
 // 		test.Logf(fmt.Sprintf("SumSeries(testFull): %s", err))
 // 		test.Fail()
 // 		return
@@ -230,7 +230,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = execCompareSeries(expectedNaN, sumNaN); err != nil {
+// 	if err = compareSeries(expectedNaN, sumNaN); err != nil {
 // 		test.Logf(fmt.Sprintf("SumSeries(testNaN): %s", err))
 // 		test.Fail()
 // 		return
@@ -242,7 +242,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = execCompareSeries(expectedNotNormalized, sumNotNormalized); err != nil {
+// 	if err = compareSeries(expectedNotNormalized, sumNotNormalized); err != nil {
 // 		test.Logf(fmt.Sprintf("SumSeries(testNotNormalized): %s", err))
 // 		test.Fail()
 // 		return
@@ -281,7 +281,7 @@ func Test_ConsolidateAverage(test *testing.T) {
 		}
 	}
 
-	execConsolidateHande(test, testSlice, ConsolidateAverage)
+	consolidateHandle(test, testSlice, ConsolidateAverage)
 }
 
 func Test_ConsolidateMax(test *testing.T) {
@@ -322,7 +322,7 @@ func Test_ConsolidateMax(test *testing.T) {
 		}
 	}
 
-	execConsolidateHande(test, testSlice, ConsolidateMax)
+	consolidateHandle(test, testSlice, ConsolidateMax)
 }
 
 func Test_ConsolidateMin(test *testing.T) {
@@ -363,7 +363,7 @@ func Test_ConsolidateMin(test *testing.T) {
 		}
 	}
 
-	execConsolidateHande(test, testSlice, ConsolidateMin)
+	consolidateHandle(test, testSlice, ConsolidateMin)
 }
 
 func Test_ConsolidateLast(test *testing.T) {
@@ -392,7 +392,7 @@ func Test_ConsolidateLast(test *testing.T) {
 		}
 	}
 
-	execConsolidateHande(test, testSlice, ConsolidateLast)
+	consolidateHandle(test, testSlice, ConsolidateLast)
 }
 
 func Test_ConsolidateSum(test *testing.T) {
@@ -421,24 +421,24 @@ func Test_ConsolidateSum(test *testing.T) {
 		}
 	}
 
-	execConsolidateHande(test, testSlice, ConsolidateSum)
+	consolidateHandle(test, testSlice, ConsolidateSum)
 }
 
-func execConsolidateHande(test *testing.T, testSlice []sampleTest, consolidationType int) {
+func consolidateHandle(test *testing.T, testSlice []sampleTest, consolidationType int) {
 	for _, entry := range testSlice {
 		series := Series{}
 		utils.Clone(&plotSeries, &series)
 
 		series.Downsample(startTime, endTime, entry.Sample, consolidationType)
 
-		if !execConsolidateEqual(entry.Plots, series.Plots) {
+		if !consolidateEqual(entry.Plots, series.Plots) {
 			test.Logf("\nExpected %#v\nbut got  %#v", entry.Plots, series.Plots)
 			test.Fail()
 		}
 	}
 }
 
-func execConsolidateEqual(a, b []Plot) bool {
+func consolidateEqual(a, b []Plot) bool {
 	if len(a) != len(b) {
 		return false
 	}
