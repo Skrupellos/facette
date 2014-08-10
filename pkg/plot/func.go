@@ -114,7 +114,6 @@ func (bucket plotBucket) Consolidate(consolidationType int) Plot {
 // ConsolidateSeries aligns series steps to the less precise one.
 func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample int,
 	consolidationType int) ([]Series, error) {
-
 	if sample == 0 {
 		return nil, fmt.Errorf("sample must be greater than zero")
 	}
@@ -141,12 +140,15 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 		sample = maxLength
 	}
 
+	// Calculate the common step for all series based on time specs and requested sampling
 	step := endTime.Sub(startTime) / time.Duration(sample)
 
+	// Store each series' plots into the proper time step plot buckets,
+	// then consolidate each series plots buckets according to consolidation function
 	for seriesIndex, series := range seriesList {
 		buckets[seriesIndex] = make([]plotBucket, sample)
 
-		// Initialize buckets
+		// Initialize time step plot buckets
 		for stepIndex := 0; stepIndex < sample; stepIndex++ {
 			buckets[seriesIndex][stepIndex] = plotBucket{
 				startTime: startTime.Add(time.Duration(stepIndex) * step),
@@ -154,8 +156,9 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 			}
 		}
 
-		// Propagate plots across buckets
+		// Dispatch series plots in the right time plot bucket
 		for _, plot := range series.Plots {
+			// Discard series plots out of time specs range
 			if plot.Time.Before(startTime) || plot.Time.After(endTime) {
 				continue
 			}
@@ -168,7 +171,6 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 			buckets[seriesIndex][plotIndex].plots = append(buckets[seriesIndex][plotIndex].plots, plot)
 		}
 
-		// Consolidate buckets
 		consolidatedSeries[seriesIndex] = Series{
 			Name:    seriesList[seriesIndex].Name,
 			Plots:   make([]Plot, sample),
@@ -182,6 +184,7 @@ func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample
 		plotLast := Value(math.NaN())
 		plotStep := endTime.Sub(startTime) / time.Duration(sample)
 
+		// Consolidate each series' plot buckets
 		for bucketIndex := range buckets[seriesIndex] {
 			consolidatedSeries[seriesIndex].Plots[bucketIndex] = buckets[seriesIndex][bucketIndex].
 				Consolidate(consolidationType)
