@@ -1,7 +1,11 @@
 package plot
 
 import (
-	"fmt"
+	"math"
+	"testing"
+	"time"
+
+	"github.com/facette/facette/pkg/utils"
 )
 
 // import (
@@ -119,7 +123,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = compareSeries(expectedFull, avgFull); err != nil {
+// 	if err = execCompareSeries(expectedFull, avgFull); err != nil {
 // 		test.Logf(fmt.Sprintf("AverageSeries(testFull): %s", err))
 // 		test.Fail()
 // 		return
@@ -131,7 +135,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = compareSeries(expectedNaN, avgNaN); err != nil {
+// 	if err = execCompareSeries(expectedNaN, avgNaN); err != nil {
 // 		test.Logf(fmt.Sprintf("AverageSeries(testNaN): %s", err))
 // 		test.Fail()
 // 		return
@@ -143,7 +147,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = compareSeries(expectedNotNormalized, avgNotNormalized); err != nil {
+// 	if err = execCompareSeries(expectedNotNormalized, avgNotNormalized); err != nil {
 // 		test.Logf(fmt.Sprintf("AverageSeries(testNotNormalized): %s", err))
 // 		test.Fail()
 // 		return
@@ -214,7 +218,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = compareSeries(expectedFull, sumFull); err != nil {
+// 	if err = execCompareSeries(expectedFull, sumFull); err != nil {
 // 		test.Logf(fmt.Sprintf("SumSeries(testFull): %s", err))
 // 		test.Fail()
 // 		return
@@ -226,7 +230,7 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = compareSeries(expectedNaN, sumNaN); err != nil {
+// 	if err = execCompareSeries(expectedNaN, sumNaN); err != nil {
 // 		test.Logf(fmt.Sprintf("SumSeries(testNaN): %s", err))
 // 		test.Fail()
 // 		return
@@ -238,23 +242,212 @@ import (
 // 		test.Fail()
 // 	}
 
-// 	if err = compareSeries(expectedNotNormalized, sumNotNormalized); err != nil {
+// 	if err = execCompareSeries(expectedNotNormalized, sumNotNormalized); err != nil {
 // 		test.Logf(fmt.Sprintf("SumSeries(testNotNormalized): %s", err))
 // 		test.Fail()
 // 		return
 // 	}
 // }
 
-func compareSeries(expected, actual Series) error {
-	for i := range expected.Plots {
-		if expected.Plots[i].Value.IsNaN() {
-			if expected.Plots[i].Value.IsNaN() && !actual.Plots[i].Value.IsNaN() {
-				return fmt.Errorf("\nExpected %v\nbut got %v", expected.Plots, actual.Plots)
-			}
-		} else if expected.Plots[i] != actual.Plots[i] {
-			return fmt.Errorf("\nExpected %v\nbut got %v", expected.Plots, actual.Plots)
+func Test_ConsolidateAverage(test *testing.T) {
+	testSlice := []sampleTest{
+		sampleTest{5, []Plot{
+			{Value: 65.4}, {Value: 79.6}, {Value: 83.4}, {Value: 73.6}, {Value: 82.8},
+		}},
+		sampleTest{15, []Plot{
+			{Value: 61}, {Value: 83.5}, {Value: 49.5}, {Value: 68}, {Value: 91},
+			{Value: 74}, {Value: 76.5}, {Value: 88}, {Value: 88}, {Value: 85},
+			{Value: 66.5}, {Value: 75}, {Value: 79.5}, {Value: 94.5}, {Value: 66},
+		}},
+		sampleTest{30, plotSeries.Plots},
+		sampleTest{60, plotSeries.Plots},
+	}
+
+	for testIndex := range testSlice {
+		if testSlice[testIndex].Sample > len(plotSeries.Plots) {
+			continue
+		}
+
+		chunkSize := len(plotSeries.Plots) / testSlice[testIndex].Sample
+
+		sampleIndex := 0
+
+		for plotIndex := chunkSize; plotIndex < len(plotSeries.Plots); plotIndex += chunkSize {
+			testSlice[testIndex].Plots[sampleIndex].Time = plotSeries.Plots[plotIndex-chunkSize].Time.Add(
+				plotSeries.Plots[plotIndex].Time.Sub(plotSeries.Plots[plotIndex-chunkSize].Time) / 2,
+			)
+
+			sampleIndex++
 		}
 	}
 
-	return nil
+	execConsolidateHande(test, testSlice, ConsolidateAverage)
+}
+
+func Test_ConsolidateMax(test *testing.T) {
+	testSlice := []sampleTest{
+		sampleTest{5, []Plot{
+			{Value: 98}, {Value: 95}, {Value: 99}, {Value: 85}, {Value: 96},
+		}},
+		sampleTest{15, []Plot{
+			{Value: 61}, {Value: 98}, {Value: 56}, {Value: 68}, {Value: 95},
+			{Value: 79}, {Value: 99}, {Value: 88}, {Value: 99}, {Value: 85},
+			{Value: 71}, {Value: 78}, {Value: 89}, {Value: 96}, {Value: 66},
+		}},
+		sampleTest{30, plotSeries.Plots},
+		sampleTest{60, plotSeries.Plots},
+	}
+
+	for testIndex := range testSlice {
+		if testSlice[testIndex].Sample > len(plotSeries.Plots) {
+			continue
+		}
+
+		chunkSize := len(plotSeries.Plots) / testSlice[testIndex].Sample
+
+		maxTime := time.Time{}
+
+		sampleIndex := 0
+
+		for plotIndex := range plotSeries.Plots {
+			if plotIndex%chunkSize == 0 {
+				testSlice[testIndex].Plots[sampleIndex].Time = maxTime
+				maxTime = time.Time{}
+				continue
+			}
+
+			if plotSeries.Plots[plotIndex].Time.After(maxTime) {
+				maxTime = plotSeries.Plots[plotIndex].Time
+			}
+		}
+	}
+
+	execConsolidateHande(test, testSlice, ConsolidateMax)
+}
+
+func Test_ConsolidateMin(test *testing.T) {
+	testSlice := []sampleTest{
+		sampleTest{5, []Plot{
+			{Value: 43}, {Value: 68}, {Value: 54}, {Value: 62}, {Value: 66},
+		}},
+		sampleTest{15, []Plot{
+			{Value: 61}, {Value: 69}, {Value: 43}, {Value: 68}, {Value: 87},
+			{Value: 69}, {Value: 54}, {Value: 88}, {Value: 77}, {Value: 85},
+			{Value: 62}, {Value: 72}, {Value: 70}, {Value: 93}, {Value: 66},
+		}},
+		sampleTest{30, plotSeries.Plots},
+		sampleTest{60, plotSeries.Plots},
+	}
+
+	for testIndex := range testSlice {
+		if testSlice[testIndex].Sample > len(plotSeries.Plots) {
+			continue
+		}
+
+		chunkSize := len(plotSeries.Plots) / testSlice[testIndex].Sample
+
+		minTime := time.Time{}
+
+		sampleIndex := 0
+
+		for plotIndex := range plotSeries.Plots {
+			if plotIndex%chunkSize == 0 {
+				testSlice[testIndex].Plots[sampleIndex].Time = minTime
+				minTime = time.Time{}
+				continue
+			}
+
+			if minTime.IsZero() || plotSeries.Plots[plotIndex].Time.Before(minTime) {
+				minTime = plotSeries.Plots[plotIndex].Time
+			}
+		}
+	}
+
+	execConsolidateHande(test, testSlice, ConsolidateMin)
+}
+
+func Test_ConsolidateLast(test *testing.T) {
+	testSlice := []sampleTest{
+		sampleTest{5, []Plot{
+			{Value: 43}, {Value: 79}, {Value: 77}, {Value: 72}, {Value: Value(math.NaN())},
+		}},
+		sampleTest{15, []Plot{
+			{Value: 61}, {Value: 98}, {Value: 43}, {Value: Value(math.NaN())}, {Value: 95},
+			{Value: 79}, {Value: 54}, {Value: Value(math.NaN())}, {Value: 77}, {Value: Value(math.NaN())},
+			{Value: 71}, {Value: 72}, {Value: 70}, {Value: 93}, {Value: Value(math.NaN())},
+		}},
+		sampleTest{30, plotSeries.Plots},
+		sampleTest{60, plotSeries.Plots},
+	}
+
+	for testIndex := range testSlice {
+		if testSlice[testIndex].Sample > len(plotSeries.Plots) {
+			continue
+		}
+
+		chunkTime := time.Duration(len(plotSeries.Plots)/testSlice[testIndex].Sample) * time.Second
+
+		for plotIndex := range testSlice[testIndex].Plots {
+			testSlice[testIndex].Plots[plotIndex].Time = startTime.Add(time.Duration(plotIndex) * chunkTime)
+		}
+	}
+
+	execConsolidateHande(test, testSlice, ConsolidateLast)
+}
+
+func Test_ConsolidateSum(test *testing.T) {
+	testSlice := []sampleTest{
+		sampleTest{5, []Plot{
+			{Value: 327}, {Value: 398}, {Value: 417}, {Value: 368}, {Value: 414},
+		}},
+		sampleTest{15, []Plot{
+			{Value: 61}, {Value: 167}, {Value: 99}, {Value: 68}, {Value: 182},
+			{Value: 148}, {Value: 153}, {Value: 88}, {Value: 176}, {Value: 85},
+			{Value: 133}, {Value: 150}, {Value: 159}, {Value: 189}, {Value: 66},
+		}},
+		sampleTest{30, plotSeries.Plots},
+		sampleTest{60, plotSeries.Plots},
+	}
+
+	for testIndex := range testSlice {
+		if testSlice[testIndex].Sample > len(plotSeries.Plots) {
+			continue
+		}
+
+		chunkTime := time.Duration(len(plotSeries.Plots)/testSlice[testIndex].Sample) * time.Second
+
+		for plotIndex := range testSlice[testIndex].Plots {
+			testSlice[testIndex].Plots[plotIndex].Time = startTime.Add(time.Duration(plotIndex) * chunkTime)
+		}
+	}
+
+	execConsolidateHande(test, testSlice, ConsolidateSum)
+}
+
+func execConsolidateHande(test *testing.T, testSlice []sampleTest, consolidationType int) {
+	for _, entry := range testSlice {
+		series := Series{}
+		utils.Clone(&plotSeries, &series)
+
+		series.Downsample(startTime, endTime, entry.Sample, consolidationType)
+
+		if !execConsolidateEqual(entry.Plots, series.Plots) {
+			test.Logf("\nExpected %#v\nbut got  %#v", entry.Plots, series.Plots)
+			test.Fail()
+		}
+	}
+}
+
+func execConsolidateEqual(a, b []Plot) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].Value.IsNaN() && !b[i].Value.IsNaN() || !a[i].Value.IsNaN() && a[i].Value != b[i].Value {
+			return false
+		}
+	}
+
+	return true
 }

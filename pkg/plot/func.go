@@ -52,6 +52,10 @@ func (bucket plotBucket) Consolidate(consolidationType int) Plot {
 		sum := 0.0
 		sumCount := 0
 		for _, plot := range bucket.plots {
+			if plot.Value.IsNaN() {
+				continue
+			}
+
 			sum += float64(plot.Value)
 			sumCount++
 		}
@@ -70,11 +74,20 @@ func (bucket plotBucket) Consolidate(consolidationType int) Plot {
 
 	case ConsolidateSum:
 		sum := 0.0
+		sumCount := 0
 		for _, plot := range bucket.plots {
+			if plot.Value.IsNaN() {
+				continue
+			}
+
 			sum += float64(plot.Value)
+			sumCount++
 		}
 
-		consolidatedPlot.Value = Value(sum)
+		if sumCount > 0 {
+			consolidatedPlot.Value = Value(sum)
+		}
+
 		consolidatedPlot.Time = bucket.plots[bucketCount-1].Time
 
 	case ConsolidateLast:
