@@ -286,95 +286,11 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	response := &PlotResponse{
-		ID:          graph.ID,
-		Start:       plotReq.startTime.Format(time.RFC3339),
-		End:         plotReq.endTime.Format(time.RFC3339),
-		Name:        graph.Name,
-		Description: graph.Description,
-		Type:        graph.Type,
-		StackMode:   graph.StackMode,
-		UnitType:    graph.UnitType,
-		UnitLegend:  graph.UnitLegend,
-		Modified:    graph.Modified,
-	}
-
-	for _, groupItem := range graph.Groups {
-		groupSeries := make([]plot.Series, 0)
-
-		for _, seriesItem := range groupItem.Series {
-			if _, ok := plotSeries[seriesItem.Name]; !ok {
-				logger.Log(logger.LevelError, "server", "unable to find plots for `%s' series", seriesItem.Name)
-				continue
-			}
-
-			for _, plotItem := range plotSeries[seriesItem.Name] {
-				// Apply series scale if any
-				if scale, _ := config.GetFloat(seriesItem.Options, "scale", false); scale != 0 {
-					plotItem.Scale(plot.Value(scale))
-				}
-
-				groupSeries = append(groupSeries, plotItem)
-			}
-		}
-
-		// Normalize all series plots on the same time step
-		consolidatedSeries, err := plot.ConsolidateSeries(
-			groupSeries,
-			plotReq.startTime,
-			plotReq.endTime,
-			plotReq.Sample,
-			plot.ConsolidateAverage,
-		)
-		if err != nil {
-			logger.Log(logger.LevelError, "server", "unable to consolidate series: %s", err)
-			continue
-		}
-
-		// Perform requested series operations
-		if groupItem.Type == plot.OperTypeAverage || groupItem.Type == plot.OperTypeSum {
-			var (
-				operSeries plot.Series
-				err        error
-			)
-
-			if groupItem.Type == plot.OperTypeAverage {
-				operSeries, err = plot.AverageSeries(consolidatedSeries)
-				if err != nil {
-					logger.Log(logger.LevelError, "server", "unable to average series: %s", err)
-					continue
-				}
-			} else {
-				operSeries, err = plot.SumSeries(consolidatedSeries)
-				if err != nil {
-					logger.Log(logger.LevelError, "server", "unable to sum series: %s", err)
-					continue
-				}
-			}
-
-			operSeries.Name = groupItem.Name
-
-			groupSeries = []plot.Series{operSeries}
-
-			// Apply group scale if any
-			if scale, _ := config.GetFloat(groupItem.Options, "scale", false); scale != 0 {
-				groupSeries[0].Scale(plot.Value(scale))
-			}
-		} else {
-			groupSeries = consolidatedSeries
-		}
-
-		for _, seriesItem := range groupSeries {
-			// Summarize (compute min/max/avg/last values) each series
-			seriesItem.Summarize(plotReq.Percentiles)
-
-			response.Series = append(response.Series, &SeriesResponse{
-				Name:    seriesItem.Name,
-				Plots:   seriesItem.Plots,
-				Summary: seriesItem.Summary,
-				Options: groupItem.Options,
-			})
-		}
+	response, err := makePlotsResponse(plotSeries, plotReq, graph)
+	if err != nil {
+		logger.Log(logger.LevelError, "server", "unable to make plots response: %s", err)
+		server.serveResponse(writer, serverResponse{mesgPlotOperationError}, http.StatusInternalServerError)
+		return
 	}
 
 	server.serveResponse(writer, response, http.StatusOK)
@@ -507,4 +423,97 @@ func parsePlotRequest(request *http.Request) (*PlotRequest, error) {
 	}
 
 	return plotReq, nil
+}
+
+func makePlotsResponse(plotSeries map[string][]plot.Series, plotReq *PlotRequest,
+	graph *library.Graph) (*PlotResponse, error) {
+
+	response := &PlotResponse{
+		ID:          graph.ID,
+		Start:       plotReq.startTime.Format(time.RFC3339),
+		End:         plotReq.endTime.Format(time.RFC3339),
+		Name:        graph.Name,
+		Description: graph.Description,
+		Type:        graph.Type,
+		StackMode:   graph.StackMode,
+		UnitType:    graph.UnitType,
+		UnitLegend:  graph.UnitLegend,
+		Modified:    graph.Modified,
+	}
+
+	for _, groupItem := range graph.Groups {
+		groupSeries := make([]plot.Series, 0)
+
+		for _, seriesItem := range groupItem.Series {
+			if _, ok := plotSeries[seriesItem.Name]; !ok {
+				return nil, fmt.Errorf("unable to find plots for `%s' series", seriesItem.Name)
+			}
+
+			for _, plotItem := range plotSeries[seriesItem.Name] {
+				// Apply series scale if any
+				if scale, _ := config.GetFloat(seriesItem.Options, "scale", false); scale != 0 {
+					plotItem.Scale(plot.Value(scale))
+				}
+
+				groupSeries = append(groupSeries, plotItem)
+			}
+		}
+
+		// Normalize all series plots on the same time step
+		consolidatedSeries, err := plot.ConsolidateSeries(
+			groupSeries,
+			plotReq.startTime,
+			plotReq.endTime,
+			plotReq.Sample,
+			plot.ConsolidateAverage,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("unable to consolidate series: %s", err)
+		}
+
+		// Perform requested series operations
+		if groupItem.Type == plot.OperTypeAverage || groupItem.Type == plot.OperTypeSum {
+			var (
+				operSeries plot.Series
+				err        error
+			)
+
+			if groupItem.Type == plot.OperTypeAverage {
+				operSeries, err = plot.AverageSeries(consolidatedSeries)
+				if err != nil {
+					return nil, fmt.Errorf("unable to average series: %s", err)
+				}
+			} else {
+				operSeries, err = plot.SumSeries(consolidatedSeries)
+				if err != nil {
+					return nil, fmt.Errorf("unable to sum series: %s", err)
+				}
+			}
+
+			operSeries.Name = groupItem.Name
+
+			groupSeries = []plot.Series{operSeries}
+
+			// Apply group scale if any
+			if scale, _ := config.GetFloat(groupItem.Options, "scale", false); scale != 0 {
+				groupSeries[0].Scale(plot.Value(scale))
+			}
+		} else {
+			groupSeries = consolidatedSeries
+		}
+
+		for _, seriesItem := range groupSeries {
+			// Summarize each series (compute min/max/avg/last values)
+			seriesItem.Summarize(plotReq.Percentiles)
+
+			response.Series = append(response.Series, &SeriesResponse{
+				Name:    seriesItem.Name,
+				Plots:   seriesItem.Plots,
+				Summary: seriesItem.Summary,
+				Options: groupItem.Options,
+			})
+		}
+	}
+
+	return response, nil
 }
