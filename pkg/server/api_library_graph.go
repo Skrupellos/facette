@@ -470,7 +470,7 @@ func makePlotsResponse(plotSeries map[string][]plot.Series, plotReq *PlotRequest
 		}
 
 		// Normalize all series plots on the same time step
-		consolidatedSeries, err := plot.ConsolidateSeries(
+		consolidatedSeries, err := plot.Normalize(
 			groupSeries,
 			plotReq.startTime,
 			plotReq.endTime,

@@ -111,9 +111,8 @@ func (bucket plotBucket) Consolidate(consolidationType int) Plot {
 	return consolidatedPlot
 }
 
-// ConsolidateSeries aligns series steps to the less precise one.
-func ConsolidateSeries(seriesList []Series, startTime, endTime time.Time, sample int,
-	consolidationType int) ([]Series, error) {
+// Normalize aligns series steps to the less precise one.
+func Normalize(seriesList []Series, startTime, endTime time.Time, sample int, consolidationType int) ([]Series, error) {
 	if sample == 0 {
 		return nil, fmt.Errorf("sample must be greater than zero")
 	}
