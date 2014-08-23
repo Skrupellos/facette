@@ -247,38 +247,11 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	plotSeries := make(map[string][]plot.Series)
-
-	// Execute queries
-	for _, providerQuery := range providerQueries {
-		plots, err := providerQuery.connector.GetPlots(&providerQuery.query)
-		if err != nil {
-			logger.Log(logger.LevelError, "server", "%s", err)
-			continue
-		}
-
-		// Re-arrange internal plot results according to original queries
-		for plotsIndex, plotsItem := range plots {
-			// Add metric name detail to series name is a source/metric group
-			if strings.HasPrefix(providerQuery.queryMap[plotsIndex].seriesName, library.LibraryGroupPrefix) {
-				plotsItem.Name = fmt.Sprintf(
-					"%s (%s)",
-					providerQuery.queryMap[plotsIndex].sourceName,
-					providerQuery.queryMap[plotsIndex].metricName,
-				)
-			} else {
-				plotsItem.Name = providerQuery.queryMap[plotsIndex].seriesName
-			}
-
-			if _, ok := plotSeries[providerQuery.queryMap[plotsIndex].seriesName]; !ok {
-				plotSeries[providerQuery.queryMap[plotsIndex].seriesName] = make([]plot.Series, 0)
-			}
-
-			plotSeries[providerQuery.queryMap[plotsIndex].seriesName] = append(
-				plotSeries[providerQuery.queryMap[plotsIndex].seriesName],
-				plotsItem,
-			)
-		}
+	plotSeries, err := executeQueries(providerQueries)
+	if err != nil {
+		logger.Log(logger.LevelError, "server", "unable to execute provider queries: %s", err)
+		server.serveResponse(writer, serverResponse{mesgProviderQueryError}, http.StatusInternalServerError)
+		return
 	}
 
 	if len(plotSeries) == 0 {
@@ -423,6 +396,43 @@ func parsePlotRequest(request *http.Request) (*PlotRequest, error) {
 	}
 
 	return plotReq, nil
+}
+
+func executeQueries(queries map[string]*providerQuery) (map[string][]plot.Series, error) {
+	plotSeries := make(map[string][]plot.Series)
+
+	for _, providerQuery := range queries {
+		plots, err := providerQuery.connector.GetPlots(&providerQuery.query)
+		if err != nil {
+			logger.Log(logger.LevelError, "server", "%s", err)
+			continue
+		}
+
+		// Re-arrange internal plot results according to original queries
+		for plotsIndex, plotsItem := range plots {
+			// Add metric name detail to series name is a source/metric group
+			if strings.HasPrefix(providerQuery.queryMap[plotsIndex].seriesName, library.LibraryGroupPrefix) {
+				plotsItem.Name = fmt.Sprintf(
+					"%s (%s)",
+					providerQuery.queryMap[plotsIndex].sourceName,
+					providerQuery.queryMap[plotsIndex].metricName,
+				)
+			} else {
+				plotsItem.Name = providerQuery.queryMap[plotsIndex].seriesName
+			}
+
+			if _, ok := plotSeries[providerQuery.queryMap[plotsIndex].seriesName]; !ok {
+				plotSeries[providerQuery.queryMap[plotsIndex].seriesName] = make([]plot.Series, 0)
+			}
+
+			plotSeries[providerQuery.queryMap[plotsIndex].seriesName] = append(
+				plotSeries[providerQuery.queryMap[plotsIndex].seriesName],
+				plotsItem,
+			)
+		}
+	}
+
+	return plotSeries, nil
 }
 
 func makePlotsResponse(plotSeries map[string][]plot.Series, plotReq *PlotRequest,
