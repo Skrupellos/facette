@@ -230,8 +230,13 @@ type statsResponse struct {
 }
 
 type providerQuery struct {
-	query      plot.Query
-	seriesMap  []string
-	metricsMap []string
-	connector  connector.Connector
+	query     plot.Query
+	queryMap  []providerQueryMap
+	connector connector.Connector
+}
+
+type providerQueryMap struct {
+	seriesName string
+	sourceName string
+	metricName string
 }

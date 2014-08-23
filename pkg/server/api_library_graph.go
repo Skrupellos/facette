@@ -260,22 +260,22 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		// Re-arrange internal plot results according to original queries
 		for plotsIndex, plotsItem := range plots {
 			// Add metric name detail to series name is a source/metric group
-			if strings.HasPrefix(providerQuery.seriesMap[plotsIndex], library.LibraryGroupPrefix) {
+			if strings.HasPrefix(providerQuery.queryMap[plotsIndex].seriesName, library.LibraryGroupPrefix) {
 				plotsItem.Name = fmt.Sprintf(
 					"%s (%s)",
-					strings.TrimPrefix(providerQuery.seriesMap[plotsIndex], library.LibraryGroupPrefix),
-					providerQuery.metricsMap[plotsIndex],
+					providerQuery.queryMap[plotsIndex].sourceName,
+					providerQuery.queryMap[plotsIndex].metricName,
 				)
 			} else {
-				plotsItem.Name = providerQuery.seriesMap[plotsIndex]
+				plotsItem.Name = providerQuery.queryMap[plotsIndex].seriesName
 			}
 
-			if _, ok := plotSeries[providerQuery.seriesMap[plotsIndex]]; !ok {
-				plotSeries[providerQuery.seriesMap[plotsIndex]] = make([]plot.Series, 0)
+			if _, ok := plotSeries[providerQuery.queryMap[plotsIndex].seriesName]; !ok {
+				plotSeries[providerQuery.queryMap[plotsIndex].seriesName] = make([]plot.Series, 0)
 			}
 
-			plotSeries[providerQuery.seriesMap[plotsIndex]] = append(
-				plotSeries[providerQuery.seriesMap[plotsIndex]],
+			plotSeries[providerQuery.queryMap[plotsIndex].seriesName] = append(
+				plotSeries[providerQuery.queryMap[plotsIndex].seriesName],
 				plotsItem,
 			)
 		}
@@ -441,9 +441,8 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 								Sample:    plotReq.Sample,
 								Series:    make([]plot.QuerySeries, 0),
 							},
-							seriesMap:  make([]string, 0),
-							metricsMap: make([]string, 0),
-							connector:  metric.Connector.(connector.Connector),
+							queryMap:  make([]providerQueryMap, 0),
+							connector: metric.Connector.(connector.Connector),
 						}
 					}
 
@@ -458,16 +457,14 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 						},
 					)
 
-					// Map internal series to its user-defined name
-					providerQueries[providerName].seriesMap = append(
-						providerQueries[providerName].seriesMap,
-						seriesItem.Name,
-					)
-
-					// Keep track of metrics names for display purpose
-					providerQueries[providerName].metricsMap = append(
-						providerQueries[providerName].metricsMap,
-						metric.Name,
+					// Keep track of user-defined series name and source/metric information
+					providerQueries[providerName].queryMap = append(
+						providerQueries[providerName].queryMap,
+						providerQueryMap{
+							seriesName: seriesItem.Name,
+							sourceName: metric.Source.Name,
+							metricName: metric.Name,
+						},
 					)
 				}
 			}
