@@ -99,10 +99,10 @@ type Series struct {
 
 // Downsample applies a sampling function on a series of plots, reducing the number of points.
 func (series *Series) Downsample(startTime, endTime time.Time, sample, consolidationType int) {
-	consolidatedSeries, _ := Normalize([]Series{*series}, startTime, endTime, sample, consolidationType)
-	consolidatedSeries[0].Name = series.Name
+	normalizedSeries, _ := Normalize([]Series{*series}, startTime, endTime, sample, consolidationType)
+	normalizedSeries[0].Name = series.Name
 
-	*series = consolidatedSeries[0]
+	*series = normalizedSeries[0]
 }
 
 // Scale applies a factor on a series of plots.

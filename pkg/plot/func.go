@@ -122,7 +122,7 @@ func Normalize(seriesList []Series, startTime, endTime time.Time, sample int, co
 		return nil, fmt.Errorf("no series provided")
 	}
 
-	consolidatedSeries := make([]Series, seriesCount)
+	normalizedSeries := make([]Series, seriesCount)
 
 	buckets := make([][]plotBucket, seriesCount)
 
@@ -170,7 +170,7 @@ func Normalize(seriesList []Series, startTime, endTime time.Time, sample int, co
 			buckets[seriesIndex][plotIndex].plots = append(buckets[seriesIndex][plotIndex].plots, plot)
 		}
 
-		consolidatedSeries[seriesIndex] = Series{
+		normalizedSeries[seriesIndex] = Series{
 			Name:    seriesList[seriesIndex].Name,
 			Plots:   make([]Plot, sample),
 			Summary: make(map[string]Value),
@@ -185,16 +185,16 @@ func Normalize(seriesList []Series, startTime, endTime time.Time, sample int, co
 
 		// Consolidate each series' plot buckets
 		for bucketIndex := range buckets[seriesIndex] {
-			consolidatedSeries[seriesIndex].Plots[bucketIndex] = buckets[seriesIndex][bucketIndex].
+			normalizedSeries[seriesIndex].Plots[bucketIndex] = buckets[seriesIndex][bucketIndex].
 				Consolidate(consolidationType)
 
 			if seriesCount == 1 {
 				continue
 			}
 
-			plot := &consolidatedSeries[seriesIndex].Plots[bucketIndex]
+			plot := &normalizedSeries[seriesIndex].Plots[bucketIndex]
 
-			// Align times on consolidated series lists
+			// Align times on normalized series lists
 			plot.Time = buckets[seriesIndex][bucketIndex].startTime.Add(plotStep)
 
 			if plotRatio <= 1 {
@@ -207,7 +207,7 @@ func Normalize(seriesList []Series, startTime, endTime time.Time, sample int, co
 					plotChunk := (plot.Value - plotLast) / Value(plotCount+1)
 
 					for plotIndex := bucketIndex - plotCount; plotIndex < bucketIndex; plotIndex++ {
-						consolidatedSeries[seriesIndex].Plots[plotIndex].Value = plotLast +
+						normalizedSeries[seriesIndex].Plots[plotIndex].Value = plotLast +
 							Value(plotCount-(bucketIndex-plotIndex)+1)*plotChunk
 					}
 				}
@@ -220,7 +220,7 @@ func Normalize(seriesList []Series, startTime, endTime time.Time, sample int, co
 		}
 	}
 
-	return consolidatedSeries, nil
+	return normalizedSeries, nil
 }
 
 // AverageSeries returns a new series averaging each series' datapoints.
