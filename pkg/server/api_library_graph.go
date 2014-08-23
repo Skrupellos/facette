@@ -208,9 +208,10 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	// Get graph from library
+	// Get graph definition from the plot request
 	graph = plotReq.Graph
 
+	// If a Graph ID has been provided in the plot request, fetch the graph definition from the library instead
 	if plotReq.ID != "" {
 		if item, err = server.Library.GetItem(plotReq.ID, library.LibraryItemGraph); err == nil {
 			graph = item.(*library.Graph)
@@ -233,7 +234,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	// Execute queries
+	// Prepare queries to be executed by the providers
 	providerQueries, err := server.prepareProviderQueries(plotReq, graph)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -248,14 +249,17 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 
 	plotSeries := make(map[string][]plot.Series)
 
+	// Execute queries
 	for _, providerQuery := range providerQueries {
 		plots, err := providerQuery.connector.GetPlots(&providerQuery.query)
 		if err != nil {
 			logger.Log(logger.LevelError, "server", "%s", err)
+			continue
 		}
 
+		// Re-arrange internal plot results according to original queries
 		for plotsIndex, plotsItem := range plots {
-			// Hande series name
+			// Add metric name detail to series name is a source/metric group
 			if strings.HasPrefix(providerQuery.seriesMap[plotsIndex], library.LibraryGroupPrefix) {
 				plotsItem.Name = fmt.Sprintf(
 					"%s (%s)",
@@ -314,7 +318,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 			}
 		}
 
-		// Handle series operations
+		// Normalize all series plots on the same time step
 		consolidatedSeries, err := plot.ConsolidateSeries(
 			groupSeries,
 			plotReq.startTime,
@@ -327,6 +331,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 			continue
 		}
 
+		// Perform requested series operations
 		if groupItem.Type == plot.OperTypeAverage || groupItem.Type == plot.OperTypeSum {
 			var (
 				operSeries plot.Series
@@ -360,6 +365,7 @@ func (server *Server) serveGraphPlots(writer http.ResponseWriter, request *http.
 		}
 
 		for _, seriesItem := range groupSeries {
+			// Summarize (compute min/max/avg/last values) each series
 			seriesItem.Summarize(plotReq.Percentiles)
 
 			response.Series = append(response.Series, &SeriesResponse{
@@ -383,13 +389,13 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 		for _, seriesItem := range groupItem.Series {
 			var seriesSources []string
 
-			// Check for missing origins
+			// Check for unknown origins
 			if _, ok := server.Catalog.Origins[seriesItem.Origin]; !ok {
 				logger.Log(logger.LevelWarning, "server", "unknown series origin `%s'", seriesItem.Origin)
 				return nil, os.ErrNotExist
 			}
 
-			// Handle sources/source groups
+			// Expand source groups
 			if strings.HasPrefix(seriesItem.Source, library.LibraryGroupPrefix) {
 				seriesSources = server.Library.ExpandGroup(
 					strings.TrimPrefix(seriesItem.Source, library.LibraryGroupPrefix),
@@ -399,10 +405,11 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 				seriesSources = []string{seriesItem.Source}
 			}
 
-			// Handle metrics/metric groups
+			// Process series metrics
 			for _, sourceItem := range seriesSources {
 				var seriesMetrics []string
 
+				// Expand metric groups
 				if strings.HasPrefix(seriesItem.Metric, library.LibraryGroupPrefix) {
 					seriesMetrics = server.Library.ExpandGroup(
 						strings.TrimPrefix(seriesItem.Metric, library.LibraryGroupPrefix),
@@ -415,7 +422,6 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 				for _, metricItem := range seriesMetrics {
 					// Get series metric
 					metric := server.Catalog.GetMetric(seriesItem.Origin, sourceItem, metricItem)
-
 					if metric == nil {
 						logger.Log(logger.LevelWarning, "server", "unknown metric `%s' for source `%s' (origin: %s)",
 							metricItem, sourceItem, seriesItem.Origin)
@@ -452,11 +458,13 @@ func (server *Server) prepareProviderQueries(plotReq *PlotRequest,
 						},
 					)
 
+					// Map internal series to its user-defined name
 					providerQueries[providerName].seriesMap = append(
 						providerQueries[providerName].seriesMap,
 						seriesItem.Name,
 					)
 
+					// Keep track of metrics names for display purpose
 					providerQueries[providerName].metricsMap = append(
 						providerQueries[providerName].metricsMap,
 						metric.Name,
